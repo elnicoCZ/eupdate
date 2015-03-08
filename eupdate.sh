@@ -21,9 +21,9 @@
 clear;
 
 # Destination folder
-source=./test/eupdate/
-dest=./test/root/
-tooldir=../../
+workdir=$(pwd)
+source=$workdir/test/eupdate/
+dest=$workdir/test/root/
 
 version_old=18
 version_new=19
@@ -31,63 +31,47 @@ version_new=19
 cd $source
 tree="$(find)"
 
-echo -e "============================================"
-echo -e "Version information"
-echo -e "============================================"
+echo -e "Updating from $version_old to $version_new"
 
-echo -e "Previously installed version: $version_old"
-echo -e "Newly installed version: $version_new\n"
-
-
-echo "============================================"
-echo "Content of eupdate"
-echo "============================================"
-
-echo "Directories:"
-
+# Obtains a list of all directories in source.
 for file in $tree; do
-  if test -d $file
+  if test -d $source/$file
   then
-    echo "$file"
+    #echo "$file"
     dirs="$dirs $file"
   fi
 done
 
-echo -e "\nFiles:"
-
+# Obtains a list of all files in source.
 for file in $tree; do
-  if test -f $file
+  if test -f $source/$file
   then
-    echo -e "$file"
+    #echo -e "$file"
     files="$files $file"
   fi
 done
 
-echo -e "============================================"
-echo -e "Update"
-echo -e "============================================"
-
-cd $tooldir/$dest
-
+# Creates a backup file for every file in dest which is to be overwritten.
+# The backup filename is: "filename.version"
 for file in $files; do
-  if test -f $file
+  if test -f $dest/$file
   then
-    echo -e "Backing up $dest/$file to $dest/$file.$version_old"
-    cp $file $file.$version_old
+    echo -e "Making a backup for $dest/$file"
+    cp $dest/$file $dest/$file.$version_old
   fi
 done
 
+# Creates directories which exist in source but not in dest.
 for file in $dirs; do
-  if ! test -d $file
+  if ! test -d $dest/$file
   then
     echo -e "Creating new directory $dest/$file"
-    mkdir $file
+    mkdir $dest/$file
   fi
 done
 
-cd $tooldir
-
+# Copies all files from source to dest.
 for file in $files; do
-  echo -e "Copying $source/$file to $dest/$file"
+  echo -e "Copying $dest/$file"
   cp $source/$file $dest/$file
 done
