@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export EUPDATE_VERSION="000"
+export EUPDATE_APPLICABLE_FOR="000 001 002"
