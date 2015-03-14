@@ -32,7 +32,7 @@ dest=$workdir/test/root/
 manifest=manifest
 uninstall=$workdir/uninstall
 
-backup=bak
+backup=$workdir/backup/
 
 ################################################################################
 # Functions
@@ -84,6 +84,7 @@ fi
 echo "Updating from version $version_installed to version $version_new"
 cp $config/$manifest $config/$manifest.prev                                     # Overwrites the manifest file
 cp $source/$manifest $config/$manifest
+rm $source/$manifest
 
 echo "rm $uninstall" > $uninstall
 if test -f $config/$manifest.prev; then
@@ -94,41 +95,49 @@ fi
 chmod +x $uninstall
 
 ################################################################################
-# ...
+# Obtains a list of all directories and files in source dir
 
 cd $source
 tree="$(find)"
 
-# Obtains a list of all directories in source.
-for file in $tree; do
+for file in $tree; do                                                           # Dirs
   if test -d $source/$file; then
     dirs="$dirs $file"
   fi
 done
 
-# Obtains a list of all files in source.
-for file in $tree; do
+for file in $tree; do                                                           # Files
   if test -f $source/$file; then
     files="$files $file"
   fi
 done
 
+################################################################################
+# Backup
 
-
-# Creates a backup file for every file in dest which is to be overwritten.
-# The backup filename is: "filename.version"
-for file in $files; do
-  if test -f $dest/$file; then
-    echo -e "Making a backup for $dest/$file"
+for file in $dirs; do                                                           # Creates directories which exist in source but not in backup.
+  if ! test -d $backup/$file; then
+    echo -e "Creating new directory $backup/$file"
     
-    sed -i "1irm $dest/${file}.${backup}" $uninstall
-    sed -i "1icp $dest/${file}.${backup} ${dest}/${file}" $uninstall
-    cp $dest/$file $dest/$file.$backup
+    sed -i "1irmdir $backup/$file" $uninstall
+    mkdir $backup/$file
   fi
 done
 
-# Creates directories which exist in source but not in dest.
-for file in $dirs; do
+for file in $files; do                                                          # Creates a backup file for every file in dest which is to be overwritten.
+  if test -f $dest/$file; then
+    echo -e "Making a backup for $dest/$file"
+    
+    sed -i "1irm ${backup}/${file}" $uninstall
+    sed -i "1icp ${backup}/${file} ${dest}/${file}" $uninstall
+    cp $dest/$file $backup/$file
+  fi
+done
+
+################################################################################
+# Deploy
+
+for file in $dirs; do                                                           # Creates directories which exist in source but not in dest.
   if ! test -d $dest/$file; then
     echo -e "Creating new directory $dest/$file"
     
@@ -137,12 +146,11 @@ for file in $dirs; do
   fi
 done
 
-# Copies all files from source to dest.
-for file in $files; do
+for file in $files; do                                                          # Copies all files from source to dest.
   echo -e "Copying $dest/$file"
   
   sed -i "1irm $dest/$file" $uninstall
-  cp $source/$file $dest/$file
+  cp -a $source/$file $dest/$file
 done
 
 sed -i "1i#!/bin/sh" $uninstall
