@@ -40,7 +40,7 @@ backup=$workdir/backup/
 function quit {
   # Performs clenaup and quits
   if test -d $tmp; then
-    rm -r $tmp/*
+    rm -r $tmp
   fi
   exit
 }
@@ -115,9 +115,14 @@ done
 ################################################################################
 # Backup
 
+sed -i "1irmdir $backup" $uninstall                                             # Create the backup directory
+if ! test -d $backup; then
+  mkdir $backup
+fi
+
 for file in $dirs; do                                                           # Creates directories which exist in source but not in backup.
   if ! test -d $backup/$file; then
-    echo -e "Creating new directory $backup/$file"
+    echo -e "Creating backup directory $backup/$file"
     
     sed -i "1irmdir $backup/$file" $uninstall
     mkdir $backup/$file
