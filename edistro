@@ -1,0 +1,86 @@
+###############################################################################
+#
+#  @file       edistro
+#  @brief      Creates distribution file
+#
+#  @usage:     1) Create the "eupdate" folder in your working directory. Copy
+#                 all your update contents into "eupdate".
+#              2) Run "./edistro WORKDIR".
+#              3) If success, then the update file eupdate.epd is located in
+#                 your working directory.
+#
+#  @copyright  Elnico Ltd. All rights reserved.
+#  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
+#
+#  @version    1.0 2015-03-15: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Initial revision.
+#
+################################################################################
+
+#!/bin/sh
+
+################################################################################
+# Init
+
+clear;
+
+tooldir=$(pwd)
+workdir=$1
+
+name=eupdate
+dir=$name
+tgz=$name.tgz
+md5=$name.md5
+epd=$name.epd
+
+################################################################################
+
+if [ $# -eq 0 ]; then
+  echo "Please specify the work directory. Exiting."
+  exit
+fi
+
+echo "Changing dir to $workdir"
+cd $workdir
+if [ "$?" -ne 0 ]; then
+  echo "Error: Cannot change directory to $workdir. Exiting..."
+  exit
+fi
+
+test -d $dir
+if [ "$?" -ne 0 ]; then
+  echo "Error. Directory $workdir/$dir does not exist. Exiting..."
+  exit
+fi
+
+echo "Archiving $dir to $tgz"
+tar -czf $tgz $dir
+if [ "$?" -ne 0 ]; then
+  echo "Error: Archiving failed. Exiting..."
+  exit
+fi
+
+echo "Calculating MD5 checksum for $tgz"
+md5sum -t $tgz > $md5
+if [ "$?" -ne 0 ]; then
+  echo "Error: MD5 calculation failed. Exiting..."
+  exit
+fi
+
+echo "Creating distribution file $epd"
+tar -czf $epd $tgz $md5
+if [ "$?" -ne 0 ]; then
+  echo "Error: Distribution file creation failed. Exiting..."
+  exit
+fi
+
+echo "Removing temporary files"
+rm $tgz $md5
+if [ "$?" -ne 0 ]; then
+  echo "Error: Temporary files removal failed. Exiting..."
+  exit
+fi
+
+echo "Success. Exiting..."
+
+################################################################################
