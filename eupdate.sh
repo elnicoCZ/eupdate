@@ -23,6 +23,7 @@ clear;
 # Destination folder
 workdir=$(pwd)
 tgz="$1"
+md5="$2"
 
 tmp=$workdir/tmp/
 config=$workdir/config/
@@ -46,7 +47,7 @@ function quit {
 }
 
 ################################################################################
-# Tar extract
+# Prepare temp directory
 
 if test -e $tmp/*; then                                                         # Remove all possible content of the temp directory
   rm -r $tmp/*
@@ -56,6 +57,27 @@ if ! test -d $tmp; then                                                         
   mkdir $tmp
 fi
 
+################################################################################
+# MD5 checksum
+
+cp $1 $tmp                                                                      # Copy input files to tmp
+cp $2 $tmp
+cd $tmp
+
+md5sum -c --status $(basename $2)                                               # MD5 checksum
+if [ $? -ne 0 ]; then
+  echo "MD5 checksum wrong, exiting."
+  quit
+fi
+
+echo "MD5 checksum OK."
+
+################################################################################
+# Tar extract
+
+echo "Extracting $(basename $1)"
+
+cd $workdir
 tar -xzf $tgz -C $tmp                                                           # Extract update to tmp
 
 ################################################################################
