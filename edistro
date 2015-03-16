@@ -22,8 +22,6 @@
 ################################################################################
 # Init
 
-clear;
-
 tooldir=$(pwd)
 workdir=$1
 
@@ -51,6 +49,14 @@ test -d $dir
 if [ "$?" -ne 0 ]; then
   echo "Error. Directory $workdir/$dir does not exist. Exiting..."
   exit
+fi
+
+if [ "$2" == "--deploy" ]; then
+  test -d $dir/etc/eupdate
+  if [ "$?" -eq 0 ]; then
+    echo "Updating the eupdate tool"
+    cp $tooldir/eupdate $dir/etc/eupdate/
+  fi
 fi
 
 echo "Archiving $dir to $tgz"
