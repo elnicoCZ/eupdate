@@ -1,9 +1,9 @@
 ###############################################################################
 #
-#  @file       eupdate.sh
+#  @file       eupdate
 #  @brief      ...
 #
-#  ...
+#  Desc...
 #
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
@@ -18,17 +18,22 @@
 ################################################################################
 # Init
 
-clear;
-
 # Destination folder
 workdir=$(pwd)
-tgz="$1"
-md5="$2"
+epd=$1
+
+name=eupdate
+tgz=$name.tgz
+md5=$name.md5
+
 
 tmp=$workdir/tmp/
 config=$workdir/config/
 source=$tmp/eupdate/
-dest=$workdir/test/root/
+dest=$workdir/../../
+
+sourcetool=$source/etc/eupdate/$0
+desttool=$workdir/$0
 
 manifest=manifest
 uninstall=$workdir/uninstall
@@ -49,8 +54,8 @@ function quit {
 ################################################################################
 # Prepare temp directory
 
-if test -e $tmp/*; then                                                         # Remove all possible content of the temp directory
-  rm -r $tmp/*
+if test -d $tmp; then                                                           # Remove all possible content of the temp directory
+  rm -r $tmp
 fi
 
 if ! test -d $tmp; then                                                         # Create a temp directory if not exist
@@ -58,27 +63,50 @@ if ! test -d $tmp; then                                                         
 fi
 
 ################################################################################
-# MD5 checksum
+# Extract the epd file into tmp
 
-cp $1 $tmp                                                                      # Copy input files to tmp
-cp $2 $tmp
-cd $tmp
-
-md5sum -c --status $(basename $2)                                               # MD5 checksum
-if [ $? -ne 0 ]; then
-  echo "MD5 checksum wrong, exiting."
-  quit
+test -f $epd
+if [ "$?" -ne 0 ]; then
+  echo "Error: Please specify input epd file as first argument. Exiting..."
+  exit
 fi
 
-echo "MD5 checksum OK."
+tar -xzf $epd -C $tmp                                                           # Extract update to tmp
+if [ "$?" -ne 0 ]; then
+  echo "Error: Extracting $epd failed. Exiting..."
+  exit
+fi
 
 ################################################################################
-# Tar extract
+# MD5 checksum & tgz extract
 
-echo "Extracting $(basename $1)"
+cd $tmp
 
-cd $workdir
+test -f $md5
+if [ "$?" -ne 0 ]; then
+  echo "Error: $md5 file not found in $epd Exiting..."
+  exit
+fi
+
+test -f $tgz
+if [ "$?" -ne 0 ]; then
+  echo "Error: $tgz file not found in $epd Exiting..."
+  exit
+fi
+
+md5sum -c --status $md5                                                         # MD5 checksum check
+if [ $? -ne 0 ]; then
+  echo "Error: MD5 checksum mismatch. Exiting..."
+  quit
+fi
+echo "MD5 checksum OK"
+
+echo "Extracting $tgz"
 tar -xzf $tgz -C $tmp                                                           # Extract update to tmp
+if [ "$?" -ne 0 ]; then
+  echo "Error: Extracting $tgz failed. Exiting..."
+  exit
+fi
 
 ################################################################################
 # Version check
@@ -99,7 +127,7 @@ for version in $updatable_version; do
 done
 
 if [ "$updatable" -eq 0 ]; then                                                 # Exit if update not possible
-  echo "Update from version $version_installed to version $version_new not possible."
+  echo "Update from version $version_installed to version $version_new not possible"
   quit
 fi
 
@@ -135,6 +163,24 @@ for file in $tree; do                                                           
 done
 
 ################################################################################
+# Tool update
+
+if test -f $sourcetool; then
+  diff --brief $sourcetool $desttool > /dev/null
+  if [ "$?" -ne "0" ]; then
+    echo "Updating the eupdate tool"
+    cp $sourcetool $desttool
+
+    echo "Restarting the script"
+    cd $workdir
+    sh $uninstall
+    sh $desttool $epd
+    
+    quit
+  fi
+fi
+
+################################################################################
 # Backup
 
 sed -i "1irmdir $backup" $uninstall                                             # Create the backup directory
@@ -145,7 +191,7 @@ fi
 for file in $dirs; do                                                           # Creates directories which exist in source but not in backup.
   if ! test -d $backup/$file; then
     echo -e "Creating backup directory $backup/$file"
-    
+
     sed -i "1irmdir $backup/$file" $uninstall
     mkdir $backup/$file
   fi
@@ -154,7 +200,7 @@ done
 for file in $files; do                                                          # Creates a backup file for every file in dest which is to be overwritten.
   if test -f $dest/$file; then
     echo -e "Making a backup for $dest/$file"
-    
+
     sed -i "1irm ${backup}/${file}" $uninstall
     sed -i "1icp ${backup}/${file} ${dest}/${file}" $uninstall
     cp $dest/$file $backup/$file
@@ -167,7 +213,7 @@ done
 for file in $dirs; do                                                           # Creates directories which exist in source but not in dest.
   if ! test -d $dest/$file; then
     echo -e "Creating new directory $dest/$file"
-    
+
     sed -i "1irmdir $dest/$file" $uninstall
     mkdir $dest/$file
   fi
@@ -175,7 +221,7 @@ done
 
 for file in $files; do                                                          # Copies all files from source to dest.
   echo -e "Copying $dest/$file"
-  
+
   sed -i "1irm $dest/$file" $uninstall
   cp -a $source/$file $dest/$file
 done
