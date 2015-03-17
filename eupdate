@@ -36,9 +36,9 @@ sourcetool=$source/etc/eupdate/$0
 desttool=$workdir/$0
 
 manifest=manifest
-uninstall=$workdir/uninstall
+erevert=$workdir/erevert
 
-backup=$workdir/backup/
+backup=$workdir/backup
 
 ################################################################################
 # Functions
@@ -68,13 +68,13 @@ fi
 test -f $epd
 if [ "$?" -ne 0 ]; then
   echo "Error: Please specify input epd file as first argument. Exiting..."
-  exit
+  quit
 fi
 
 tar -xzf $epd -C $tmp                                                           # Extract update to tmp
 if [ "$?" -ne 0 ]; then
   echo "Error: Extracting $epd failed. Exiting..."
-  exit
+  quit
 fi
 
 ################################################################################
@@ -85,13 +85,13 @@ cd $tmp
 test -f $md5
 if [ "$?" -ne 0 ]; then
   echo "Error: $md5 file not found in $epd Exiting..."
-  exit
+  quit
 fi
 
 test -f $tgz
 if [ "$?" -ne 0 ]; then
   echo "Error: $tgz file not found in $epd Exiting..."
-  exit
+  quit
 fi
 
 md5sum -c --status $md5                                                         # MD5 checksum check
@@ -105,44 +105,44 @@ echo "Extracting $tgz"
 tar -xzf $tgz -C $tmp                                                           # Extract update to tmp
 if [ "$?" -ne 0 ]; then
   echo "Error: Extracting $tgz failed. Exiting..."
-  exit
+  quit
 fi
 
 ################################################################################
 # Version check
 
 . $config/$manifest                                                             # Reads the installed version from the manifest file
-version_installed=$EUPDATE_VERSION
+cur_version=$EUPDATE_VERSION
 
 . $source/$manifest                                                             # Reads the update version from the update manifest file
-version_new=$EUPDATE_VERSION
-updatable_version=$EUPDATE_APPLICABLE_FOR
+new_version=$EUPDATE_VERSION
+updatable_from=$EUPDATE_APPLICABLE_FOR
 
 updatable=0                                                                     # Searches if update could be applied to the currently installed version
-for version in $updatable_version; do
-  if [ "$version" == "$version_installed" ]; then
+for version in $updatable_from; do
+  if [ "$version" == "$cur_version" ]; then
     updatable=1
     break
   fi
 done
 
 if [ "$updatable" -eq 0 ]; then                                                 # Exit if update not possible
-  echo "Update from version $version_installed to version $version_new not possible"
+  echo "Update from version $cur_version to version $new_version not possible"
   quit
 fi
 
-echo "Updating from version $version_installed to version $version_new"
+echo "Updating from version $cur_version to version $new_version"
 cp $config/$manifest $config/$manifest.prev                                     # Overwrites the manifest file
 cp $source/$manifest $config/$manifest
 rm $source/$manifest
 
-echo "rm $uninstall" > $uninstall
+echo "rm $erevert" > $erevert
 if test -f $config/$manifest.prev; then
-  sed -i "1irm $config/$manifest.prev" $uninstall
-  sed -i "1icp $config/$manifest.prev $config/$manifest" $uninstall
+  sed -i "1irm $config/$manifest.prev" $erevert
+  sed -i "1icp $config/$manifest.prev $config/$manifest" $erevert
 fi
 
-chmod +x $uninstall
+chmod +x $erevert
 
 ################################################################################
 # Obtains a list of all directories and files in source dir
@@ -173,7 +173,7 @@ if test -f $sourcetool; then
 
     echo "Restarting the script"
     cd $workdir
-    sh $uninstall
+    sh $erevert
     sh $desttool $epd
     
     quit
@@ -183,7 +183,16 @@ fi
 ################################################################################
 # Backup
 
-sed -i "1irmdir $backup" $uninstall                                             # Create the backup directory
+if test -d $backup.prev; then
+  rm -r $backup.prev
+fi
+
+if test -d $backup; then                                                        # Move all possible content of the backup directory to backup.prev
+  sed -i "1imv $backup.prev $backup" $erevert
+  mv $backup $backup.prev
+fi
+
+sed -i "1irmdir $backup" $erevert                                               # Create the backup directory
 if ! test -d $backup; then
   mkdir $backup
 fi
@@ -192,7 +201,7 @@ for file in $dirs; do                                                           
   if ! test -d $backup/$file; then
     echo -e "Creating backup directory $backup/$file"
 
-    sed -i "1irmdir $backup/$file" $uninstall
+    sed -i "1irmdir $backup/$file" $erevert
     mkdir $backup/$file
   fi
 done
@@ -201,8 +210,8 @@ for file in $files; do                                                          
   if test -f $dest/$file; then
     echo -e "Making a backup for $dest/$file"
 
-    sed -i "1irm ${backup}/${file}" $uninstall
-    sed -i "1icp ${backup}/${file} ${dest}/${file}" $uninstall
+    sed -i "1irm ${backup}/${file}" $erevert
+    sed -i "1icp ${backup}/${file} ${dest}/${file}" $erevert
     cp $dest/$file $backup/$file
   fi
 done
@@ -214,7 +223,7 @@ for file in $dirs; do                                                           
   if ! test -d $dest/$file; then
     echo -e "Creating new directory $dest/$file"
 
-    sed -i "1irmdir $dest/$file" $uninstall
+    sed -i "1irmdir $dest/$file" $erevert
     mkdir $dest/$file
   fi
 done
@@ -222,11 +231,11 @@ done
 for file in $files; do                                                          # Copies all files from source to dest.
   echo -e "Copying $dest/$file"
 
-  sed -i "1irm $dest/$file" $uninstall
+  sed -i "1irm $dest/$file" $erevert
   cp -a $source/$file $dest/$file
 done
 
-sed -i "1i#!/bin/sh" $uninstall
+sed -i "1i#!/bin/sh" $erevert
 
 ################################################################################
 # Cleanup and quit
