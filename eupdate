@@ -3,7 +3,15 @@
 #  @file       eupdate
 #  @brief      ...
 #
-#  Desc...
+#  @usage:     1) Go to the eupdate working directory (required):
+#                 cd /etc/eupdate
+#              2) Start the script providing path to epd:
+#                 ./eupdate eupdate.epd
+#
+#  @remarks:   * In the working directory new script called "erevert" will be 
+#                created. Besides that the previous version will be backed up
+#                to workdir/backup. To revert back to just run ./erevert.
+#              * The tool expects to be located in /etc/eupdate. 
 #
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
@@ -26,19 +34,17 @@ name=eupdate
 tgz=$name.tgz
 md5=$name.md5
 
-
 tmp=$workdir/tmp/
 config=$workdir/config/
+backup=$workdir/backup
+manifest=manifest
+erevert=$workdir/erevert
+
 source=$tmp/eupdate/
 dest=$workdir/../../
 
 sourcetool=$source/etc/eupdate/$0
 desttool=$workdir/$0
-
-manifest=manifest
-erevert=$workdir/erevert
-
-backup=$workdir/backup
 
 ################################################################################
 # Functions
@@ -117,6 +123,7 @@ cur_version=$EUPDATE_VERSION
 . $source/$manifest                                                             # Reads the update version from the update manifest file
 new_version=$EUPDATE_VERSION
 updatable_from=$EUPDATE_APPLICABLE_FOR
+files_to_remove=$EUPDATE_REMOVE
 
 updatable=0                                                                     # Searches if update could be applied to the currently installed version
 for version in $updatable_from; do
@@ -183,13 +190,8 @@ fi
 ################################################################################
 # Backup
 
-if test -d $backup.prev; then
-  rm -r $backup.prev
-fi
-
-if test -d $backup; then                                                        # Move all possible content of the backup directory to backup.prev
-  sed -i "1imv $backup.prev $backup" $erevert
-  mv $backup $backup.prev
+if test -d $backup; then                                                        # Remove the previous backup
+  rm -r $backup
 fi
 
 sed -i "1irmdir $backup" $erevert                                               # Create the backup directory

@@ -9,6 +9,9 @@
 #              3) If success, then the update file eupdate.epd is located in
 #                 your working directory.
 #
+#  @remarks:   * To deploy the eupdate script to ./test/eupdate/etc/eupdate
+#                run ./edistro WORKDIR --deploy
+#
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
 #
