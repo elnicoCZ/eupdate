@@ -26,6 +26,18 @@
 #!/bin/sh
 
 ################################################################################
+# Return codes
+
+EXIT_SUCCESS=0
+EXIT_ERROR_WRONG_PARAMETERS=1
+EXIT_ERROR_CD_WORKDIR=2
+EXIT_ERROR_NO_EUPDATE=3
+EXIT_ERROR_CREATE_TGZ=4
+EXIT_ERROR_CALC_MD5=5
+EXIT_ERROR_CREATE_EPD=6
+EXIT_ERROR_CLEAN_TMP=7
+
+################################################################################
 # Init
 
 tooldir=$(pwd)
@@ -41,20 +53,20 @@ epd=$name.epd
 
 if [ $# -eq 0 ]; then
   echo "Please specify the work directory. Exiting."
-  exit
+  exit $EXIT_ERROR_WRONG_PARAMETERS
 fi
 
 echo "Changing dir to $workdir"
 cd $workdir
 if [ "$?" -ne 0 ]; then
   echo "Error: Cannot change directory to $workdir. Exiting..."
-  exit
+  exit $EXIT_ERROR_CD_WORKDIR
 fi
 
 test -d $dir
 if [ "$?" -ne 0 ]; then
   echo "Error. Directory $workdir/$dir does not exist. Exiting..."
-  exit
+  exit $EXIT_ERROR_NO_EUPDATE
 fi
 
 if [ "$2" == "--deploy" ]; then
@@ -69,30 +81,31 @@ echo "Archiving $dir to $tgz"
 tar -czf $tgz $dir
 if [ "$?" -ne 0 ]; then
   echo "Error: Archiving failed. Exiting..."
-  exit
+  exit $EXIT_ERROR_CREATE_TGZ
 fi
 
 echo "Calculating MD5 checksum for $tgz"
 md5sum -t $tgz > $md5
 if [ "$?" -ne 0 ]; then
   echo "Error: MD5 calculation failed. Exiting..."
-  exit
+  exit $EXIT_ERROR_CALC_MD5
 fi
 
 echo "Creating distribution file $epd"
 tar -czf $epd $tgz $md5
 if [ "$?" -ne 0 ]; then
   echo "Error: Distribution file creation failed. Exiting..."
-  exit
+  exit $EXIT_ERROR_CREATE_EPD
 fi
 
 echo "Removing temporary files"
 rm $tgz $md5
 if [ "$?" -ne 0 ]; then
   echo "Error: Temporary files removal failed. Exiting..."
-  exit
+  exit $EXIT_ERROR_CLEAN_TMP
 fi
 
 echo "Success. Exiting..."
+exit $EXIT_SUCCESS
 
 ################################################################################

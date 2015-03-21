@@ -24,6 +24,19 @@
 #!/bin/sh
 
 ################################################################################
+# Return values
+
+EXIT_SUCCESS=0
+EXIT_UPDATE_NOT_POSSIBLE=1
+EXIT_ERROR_NO_EPD_FILE=2
+EXIT_ERROR_EXTRACTING_EPD=3
+EXIT_ERROR_EXTRACTING_TGZ=4
+EXIT_ERROR_NO_MD5_FILE=5
+EXIT_ERROR_NO_TGZ_FILE=6
+EXIT_ERROR_MD5_MISMATCH=7
+EXIT_ERROR_WRONG_PARAMETERS=8
+
+################################################################################
 # Init
 
 # Destination folder
@@ -50,12 +63,12 @@ desttool=$workdir/$0
 ################################################################################
 # Functions
 
-function quit {
+function quit() {
   # Performs clenaup and quits
   if test -d $tmp; then
     rm -r $tmp
   fi
-  exit
+  exit $1
 }
 
 ################################################################################
@@ -72,16 +85,21 @@ fi
 ################################################################################
 # Extract the epd file into tmp
 
+if [ $# -eq 0 ]; then
+  echo "Error: Wrong input parameters. Exiting..."
+  exit $EXIT_ERROR_WRONG_PARAMETERS
+fi
+
 test -f $epd
 if [ "$?" -ne 0 ]; then
   echo "Error: Please specify input epd file as first argument. Exiting..."
-  quit
+  quit $EXIT_ERROR_NO_EPD_FILE
 fi
 
 tar -xzf $epd -C $tmp                                                           # Extract update to tmp
 if [ "$?" -ne 0 ]; then
   echo "Error: Extracting $epd failed. Exiting..."
-  quit
+  quit $EXIT_ERROR_EXTRACTING_EPD
 fi
 
 ################################################################################
@@ -92,19 +110,19 @@ cd $tmp
 test -f $md5
 if [ "$?" -ne 0 ]; then
   echo "Error: $md5 file not found in $epd Exiting..."
-  quit
+  quit $EXIT_ERROR_NO_MD5_FILE
 fi
 
 test -f $tgz
 if [ "$?" -ne 0 ]; then
   echo "Error: $tgz file not found in $epd Exiting..."
-  quit
+  quit $EXIT_ERROR_NO_TGZ_FILE
 fi
 
 md5sum -c --status $md5                                                         # MD5 checksum check
 if [ $? -ne 0 ]; then
   echo "Error: MD5 checksum mismatch. Exiting..."
-  quit
+  quit $EXIT_ERROR_MD5_MISMATCH
 fi
 echo "MD5 checksum OK"
 
@@ -112,7 +130,7 @@ echo "Extracting $tgz"
 tar -xzf $tgz -C $tmp                                                           # Extract update to tmp
 if [ "$?" -ne 0 ]; then
   echo "Error: Extracting $tgz failed. Exiting..."
-  quit
+  quit $EXIT_ERROR_EXTRACTING_TGZ
 fi
 
 ################################################################################
@@ -135,7 +153,7 @@ done
 
 if [ "$updatable" -eq 0 ]; then                                                 # Exit if update not possible
   echo "Update from version $cur_version to version $new_version not possible"
-  quit
+  quit $EXIT_UPDATE_NOT_POSSIBLE
 fi
 
 echo "Updating from version $cur_version to version $new_version"
@@ -188,7 +206,7 @@ if test -f $sourcetool; then
     sh $erevert
     sh $desttool $epd
 
-    quit
+    quit $EXIT_SUCCESS
   fi
 fi
 
@@ -263,4 +281,4 @@ sed -i "1i#!/bin/sh" $erevert
 ################################################################################
 # Cleanup and quit
 
-quit
+quit $EXIT_SUCCESS
