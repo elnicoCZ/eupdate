@@ -1,0 +1,11 @@
+*************************************************************
+* Diacritic Filter
+*
+* Jan Kubiznak
+* 5.8.2007
+*************************************************************
+
+./diacritic_filter.sh input output
+
+Nahradi vsechny diakriticke znaky v souboru input za 
+odpovidajici, ale bez diakritiky (š->s).
