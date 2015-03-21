@@ -1,7 +1,7 @@
 ###############################################################################
 #
 #  @file       eupdate
-#  @brief      ...
+#  @brief      Applies update
 #
 #  @usage:     1) Go to the eupdate working directory (required):
 #                 cd /etc/eupdate
@@ -39,6 +39,7 @@ config=$workdir/config/
 backup=$workdir/backup
 manifest=manifest
 erevert=$workdir/erevert
+eremove=.eremove
 
 source=$tmp/eupdate/
 dest=$workdir/../../
@@ -123,7 +124,6 @@ cur_version=$EUPDATE_VERSION
 . $source/$manifest                                                             # Reads the update version from the update manifest file
 new_version=$EUPDATE_VERSION
 updatable_from=$EUPDATE_APPLICABLE_FOR
-files_to_remove=$EUPDATE_REMOVE
 
 updatable=0                                                                     # Searches if update could be applied to the currently installed version
 for version in $updatable_from; do
@@ -165,7 +165,12 @@ done
 
 for file in $tree; do                                                           # Files
   if test -f $source/$file; then
-    files="$files $file"
+    echo $file | grep $eremove > /dev/null
+    if [ $? -ne 0 ]; then
+      files="$files $file"                                                      # Normal files
+    else
+      remfiles="$remfiles ${file%.*}"                                           # Special files (eremove)
+    fi
   fi
 done
 
@@ -182,7 +187,7 @@ if test -f $sourcetool; then
     cd $workdir
     sh $erevert
     sh $desttool $epd
-    
+
     quit
   fi
 fi
@@ -218,6 +223,16 @@ for file in $files; do                                                          
   fi
 done
 
+for file in $remfiles; do                                                       # Creates a backup file for every file in dest which is to be deleted.
+  if test -f $dest/$file; then
+    echo -e "Making a backup for $dest/$file"
+
+    sed -i "1irm ${backup}/${file}" $erevert
+    sed -i "1icp ${backup}/${file} ${dest}/${file}" $erevert
+    cp $dest/$file $backup/$file
+  fi
+done
+
 ################################################################################
 # Deploy
 
@@ -235,6 +250,12 @@ for file in $files; do                                                          
 
   sed -i "1irm $dest/$file" $erevert
   cp -a $source/$file $dest/$file
+done
+
+for file in $remfiles; do                                                       # Removes marked files.
+  echo -e "Removing $dest/$file"
+
+  rm -f $dest/$file
 done
 
 sed -i "1i#!/bin/sh" $erevert

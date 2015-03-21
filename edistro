@@ -11,6 +11,9 @@
 #
 #  @remarks:   * To deploy the eupdate script to ./test/eupdate/etc/eupdate
 #                run ./edistro WORKDIR --deploy
+#              * If update should also remove a file from the destination, then
+#                such file should be created in the update dir with the special
+#                suffix ".eremove", e.g. "chmod.eremove" to remove "chmod".
 #
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
