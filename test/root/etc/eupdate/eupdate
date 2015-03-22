@@ -39,8 +39,8 @@ EXIT_ERROR_WRONG_PARAMETERS=8
 ################################################################################
 # Init
 
-# Destination folder
-workdir=$(pwd)
+tool=$(readlink -f $0)
+workdir=$(dirname $tool)
 epd=$1
 
 name=eupdate

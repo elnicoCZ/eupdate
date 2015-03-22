@@ -18,6 +18,9 @@
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
 #
+#  @version    1.1 2015-03-22: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Release version (tested on VF6).
+#
 #  @version    1.0 2015-03-15: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Initial revision.
 #
@@ -40,7 +43,8 @@ EXIT_ERROR_CLEAN_TMP=7
 ################################################################################
 # Init
 
-tooldir=$(pwd)
+tool=$(readlink -f $0)
+tooldir=$(dirname $tool)
 workdir=$1
 
 name=eupdate

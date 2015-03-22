@@ -3,18 +3,20 @@
 #  @file       eupdate
 #  @brief      Applies update
 #
-#  @usage:     1) Go to the eupdate working directory (required):
-#                 cd /etc/eupdate
-#              2) Start the script providing path to epd:
-#                 ./eupdate eupdate.epd
+#  @usage:     Start the script providing path to epd:
+#                ./eupdate eupdate.epd
 #
 #  @remarks:   * In the working directory new script called "erevert" will be 
 #                created. Besides that the previous version will be backed up
-#                to workdir/backup. To revert back to just run ./erevert.
-#              * The tool expects to be located in /etc/eupdate. 
+#                to tooldir/backup. To revert back just run ./erevert. The
+#                erevert script deletes itself at the end of its run.
+#              * The tool expects to be located in /etc/eupdate.
 #
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
+#
+#  @version    1.1 2015-03-22: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Release version (tested on VF6).
 #
 #  @version    1.0 2015-03-08: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Initial revision.
@@ -39,8 +41,8 @@ EXIT_ERROR_WRONG_PARAMETERS=8
 ################################################################################
 # Init
 
-# Destination folder
-workdir=$(pwd)
+tool=$(readlink -f $0)
+workdir=$(dirname $tool)
 epd=$1
 
 name=eupdate
