@@ -3,10 +3,10 @@
 ################################################################################
 # EUPDATE_VERSION: Version of this update
 ################################################################################
-export EUPDATE_VERSION="010"
+export EUPDATE_VERSION="000"
 
 ################################################################################
 # EUPDATE_APPLICABLE_FOR: Array of versions for which this update could be
 #                         applied. Use the following format: "000 001 002".
 ################################################################################
-export EUPDATE_APPLICABLE_FOR="000 001 002"
+#export EUPDATE_APPLICABLE_FOR="000 001 002"
