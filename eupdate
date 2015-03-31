@@ -65,19 +65,36 @@ desttool=$workdir/$0
 ################################################################################
 # Functions
 
+# Performs clenaup and quits
+# Input: Return code
 function quit() {
-  # Performs clenaup and quits
   if test -d $tmp; then
-    rm -r $tmp
+    rm -rf $tmp
   fi
   exit $1
+}
+
+# Checks if file of a given name exists (not important if it's a regular file or link).
+# Input: Path to file
+# Output: Prints out 0 in case it exists, 1 if not.
+function isFileOrLink() {
+  local file_exists
+  local link_exists
+
+  test -f $1
+  file_exists=$?
+
+  test -h $1
+  link_exists=$?
+
+  echo $((file_exists && link_exists))
 }
 
 ################################################################################
 # Prepare temp directory
 
 if test -d $tmp; then                                                           # Remove all possible content of the temp directory
-  rm -r $tmp
+  rm -rf $tmp
 fi
 
 if ! test -d $tmp; then                                                         # Create a temp directory if not exist
@@ -163,9 +180,9 @@ cp $config/$manifest $config/$manifest.prev                                     
 cp $source/$manifest $config/$manifest
 rm $source/$manifest
 
-echo "rm $erevert" > $erevert
+echo "rm -f $erevert" > $erevert
 if test -f $config/$manifest.prev; then
-  sed -i "1irm $config/$manifest.prev" $erevert
+  sed -i "1irm -f $config/$manifest.prev" $erevert
   sed -i "1icp $config/$manifest.prev $config/$manifest" $erevert
 fi
 
@@ -184,7 +201,8 @@ for file in $tree; do                                                           
 done
 
 for file in $tree; do                                                           # Files
-  if test -f $source/$file; then
+  res=$(isFileOrLink $source/$file)
+  if [ "$res" -eq "0" ]; then
     echo $file | grep $eremove > /dev/null
     if [ $? -ne 0 ]; then
       files="$files $file"                                                      # Normal files
@@ -216,7 +234,7 @@ fi
 # Backup
 
 if test -d $backup; then                                                        # Remove the previous backup
-  rm -r $backup
+  rm -rf $backup
 fi
 
 sed -i "1irmdir $backup" $erevert                                               # Create the backup directory
@@ -234,22 +252,24 @@ for file in $dirs; do                                                           
 done
 
 for file in $files; do                                                          # Creates a backup file for every file in dest which is to be overwritten.
-  if test -f $dest/$file; then
+  res=$(isFileOrLink $dest/$file)
+  if [ "$res" -eq "0" ]; then
     echo -e "Making a backup for $dest/$file"
 
-    sed -i "1irm ${backup}/${file}" $erevert
-    sed -i "1icp ${backup}/${file} ${dest}/${file}" $erevert
-    cp $dest/$file $backup/$file
+    sed -i "1irm -f ${backup}/${file}" $erevert
+    sed -i "1icp -a ${backup}/${file} ${dest}/${file}" $erevert
+    cp -a $dest/$file $backup/$file
   fi
 done
 
 for file in $remfiles; do                                                       # Creates a backup file for every file in dest which is to be deleted.
-  if test -f $dest/$file; then
+  res=$(isFileOrLink $dest/$file)
+  if [ "$res" -eq "0" ]; then
     echo -e "Making a backup for $dest/$file"
 
-    sed -i "1irm ${backup}/${file}" $erevert
-    sed -i "1icp ${backup}/${file} ${dest}/${file}" $erevert
-    cp $dest/$file $backup/$file
+    sed -i "1irm -f ${backup}/${file}" $erevert
+    sed -i "1icp -a ${backup}/${file} ${dest}/${file}" $erevert
+    cp -a $dest/$file $backup/$file
   fi
 done
 
@@ -268,7 +288,7 @@ done
 for file in $files; do                                                          # Copies all files from source to dest.
   echo -e "Copying $dest/$file"
 
-  sed -i "1irm $dest/$file" $erevert
+  sed -i "1irm -f $dest/$file" $erevert
   cp -a $source/$file $dest/$file
 done
 

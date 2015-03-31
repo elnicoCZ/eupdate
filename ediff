@@ -1,0 +1,260 @@
+###############################################################################
+#
+#  @file       ediff
+#  @brief      Creates a diff of two input .tar.bz2 archives
+#
+#  @usage:     ./ediff old_fs.tar.bz2 new_fs_tar.bz2
+#
+#  @copyright  Elnico Ltd. All rights reserved.
+#  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
+#
+#
+#  @version    1.0 2015-03-28: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Initial revision.
+#
+################################################################################
+
+#!/bin/sh
+
+################################################################################
+# Return codes
+
+EXIT_SUCCESS=0
+EXIT_ERROR_WRONG_PARAMETERS=1
+EXIT_ERROR_CD_TOOLDIR=2
+EXIT_ERROR_NO_INP_FILE=3
+EXIT_ERROR_EXTRACTING_OLD=4
+EXIT_ERROR_EXTRACTING_NEW=5
+
+
+################################################################################
+# Init
+
+tool=$(readlink -f $0)
+tooldir=$(dirname $tool)
+
+old=$1
+new=$2
+
+name=eupdate
+epd=$name.epd
+eremove=.eremove
+
+tmp=$tooldir/tmp
+tmpold=$tmp/old
+tmpnew=$tmp/new
+tmpepd=$tmp/$name
+manifest=etc/eupdate/config/manifest
+
+################################################################################
+# Functions
+
+# Performs clenaup and quits
+# Input: Return code
+function quit()
+{
+  if test -d $tmp; then
+    rm -rf $tmp
+  fi
+  exit $1
+}
+
+# Creates all directories in a path name, if they don't exist already
+# Input: Path name like "./etc/eupdate/test"
+function createdirs()
+{
+  local pathname=$1
+  local curpath=$(pwd)
+  local IFS_orig=$IFS
+  local IFS=/
+  local dirarray
+
+  set -f                                                                        # Disable glob expansion
+  dirarray=( $@ )                                                               # Deliberately unquoted 
+  set +f
+
+  # Items to skip:
+  # - 1st: "."
+  # - last: possibly no dir, but a file
+  for ((i=1; i<(${#dirarray[@]}-1); i++))
+  {
+    dir=${dirarray[$i]}
+
+    if ! test -d $dir; then
+      mkdir $dir
+    fi
+    cd $dir
+  }
+
+  IFS=$IFS_orig
+  cd $curpath
+}
+
+################################################################################
+
+if [ $# -eq 0 ]; then
+  echo "Please specify input files. Exiting..."
+  exit $EXIT_ERROR_WRONG_PARAMETERS
+fi
+
+################################################################################
+# Prepare temp directory
+
+if test -d $tmp; then                                                           # Remove all possible content of the temp directory
+  rm -rf $tmp
+fi
+
+if ! test -d $tmp; then                                                         # Create a temp directory if not exist
+  mkdir $tmp
+fi
+
+################################################################################
+# Extract old
+
+echo "Extracting $old"
+
+test -f $old
+if [ "$?" -ne 0 ]; then
+  echo "Error: Please specify old tar.bz2 file as first argument. Exiting..."
+  quit $EXIT_ERROR_NO_INP_FILE
+fi
+
+mkdir $tmpold
+
+tar -xjf $old -C $tmpold
+if [ "$?" -ne 0 ]; then
+  echo "Error: Extracting $old failed. Exiting..."
+  quit $EXIT_ERROR_EXTRACTING_OLD
+fi
+
+################################################################################
+# Extract new
+
+echo "Extracting $new"
+
+test -f $new
+if [ "$?" -ne 0 ]; then
+  echo "Error: Please specify new tar.bz2 file as first argument. Exiting..."
+  quit $EXIT_ERROR_NO_INP_FILE
+fi
+
+mkdir $tmpnew
+
+tar -xjf $new -C $tmpnew
+if [ "$?" -ne 0 ]; then
+  echo "Error: Extracting $new failed. Exiting..."
+  quit $EXIT_ERROR_EXTRACTING_NEW
+fi
+
+################################################################################
+# Obtains a list of all directories and files in old
+
+cd $tmpold
+tree="$(find)"
+
+for file in $tree; do                                                           # Dirs
+  if test -d $tmpold/$file; then
+    olddirs="$olddirs $file"
+  fi
+done
+
+for file in $tree; do                                                           # Files
+  if test -f $tmpold/$file; then
+    oldfiles="$oldfiles $file"
+  fi
+done
+
+################################################################################
+# Obtains a list of all directories and files in new
+
+cd $tmpnew
+tree="$(find)"
+
+for file in $tree; do
+  if test -d $tmpnew/$file; then
+    newdirs="$newdirs $file"
+  elif test -f $tmpnew/$file; then
+    newfiles="$newfiles $file"
+  elif test -h $tmpnew/$file; then
+    newfiles="$newfiles $file"
+  fi
+done
+
+################################################################################
+# Prepares the update folder
+
+mkdir $tmpepd
+cd $tmpepd
+
+for file in $oldfiles; do                                                       # Files to remove
+  if ! test -f $tmpnew/$file; then
+    echo -e "File to remove: $file"
+
+    createdirs $file
+    touch $file$eremove
+  fi
+done
+
+for file in $olddirs; do                                                        # Directories to remove
+  if ! test -d $tmpnew/$file; then
+    echo -e "Dir to remove: $file"
+
+    createdirs $file
+    touch $file$eremove
+  fi
+done
+
+for file in $newdirs; do                                                        # Directories to create
+  if ! test -d $tmpold/$file; then
+    echo -e "Dir to create: $file"
+
+    createdirs $file
+    mkdir $file
+  fi
+done
+
+for file in $newfiles; do                                                       # File to copy
+  if ! test -f $tmpold/$file; then
+    echo -e "File to create: $file"
+
+    createdirs $file
+    cp -a $tmpnew/$file $file
+  elif ! test -h $tmpold/$file; then
+    echo -e "Link to create: $file"
+
+    createdirs $file
+    cp -a $tmpnew/$file $file
+  else
+    diff --brief $tmpold/$file $tmpnew/$file > /dev/null
+    if [ "$?" -ne "0" ]; then
+      echo -e "File to update: $file"
+
+      createdirs $file
+      cp -a $tmpnew/$file $file
+    fi
+  fi
+done
+
+################################################################################
+# Adapts manifest
+
+. $tmpold/$manifest
+
+sed -i '/EUPDATE_APPLICABLE_FOR=/d' $tmpnew/$manifest
+echo "export EUPDATE_APPLICABLE_FOR=\"${EUPDATE_VERSION}\"" >> $tmpnew/$manifest
+
+cp $tmpnew/$manifest $tmpepd/manifest
+
+################################################################################
+# Generates the epd file
+
+cd $tooldir
+. edistro $tmp --deploy
+
+################################################################################
+
+echo "Success. Exiting..."
+exit 0
+#quit $EXIT_SUCCESS
+
+################################################################################
