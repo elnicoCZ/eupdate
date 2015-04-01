@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ###############################################################################
 #
 #  @file       ediff
@@ -12,10 +14,6 @@
 #  @version    1.0 2015-03-28: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Initial revision.
 #
-################################################################################
-
-#!/bin/sh
-
 ################################################################################
 # Return codes
 
@@ -63,7 +61,6 @@ function quit()
 # Input: Path name like "./etc/eupdate/test"
 function createdirs()
 {
-  local pathname=$1
   local curpath=$(pwd)
   local IFS_orig=$IFS
   local IFS=/
@@ -73,18 +70,19 @@ function createdirs()
   dirarray=( $@ )                                                               # Deliberately unquoted 
   set +f
 
+  dirarraylen=${#dirarray[@]}
+  
   # Items to skip:
   # - 1st: "."
   # - last: possibly no dir, but a file
-  for ((i=1; i<(${#dirarray[@]}-1); i++))
-  {
+  for ((i=1; i<$((dirarraylen-1)); i++)); do
     dir=${dirarray[$i]}
 
     if ! test -d $dir; then
       mkdir $dir
     fi
     cd $dir
-  }
+  done
 
   IFS=$IFS_orig
   cd $curpath
