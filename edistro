@@ -1,7 +1,9 @@
+#!/bin/sh
+
 ###############################################################################
 #
 #  @file       edistro
-#  @brief      Creates distribution file
+#  @brief      Creates update package from input directory
 #
 #  @usage:     1) Create the "eupdate" folder in your working directory. Copy
 #                 all your update contents into "eupdate".
@@ -9,8 +11,16 @@
 #              3) If success, then the update file eupdate.epd is located in
 #                 your working directory.
 #
-#  @remarks:   * To deploy the eupdate script to ./test/eupdate/etc/eupdate
+#  @remarks:   * Strongly recommended to use #!/bin/sh instead of bash or other
+#                shells. Bash is more relaxed and provides more functionality,
+#                but this functionality on the other hand often doesn't even
+#                work reliably accross different bash versions!
+#
+#              * Validator for shell scripting: http://www.shellcheck.net.
+#
+#              * To deploy the eupdate script to ./test/eupdate/etc/eupdate
 #                run ./edistro WORKDIR --deploy
+#
 #              * If update should also remove a file from the destination, then
 #                such file should be created in the update dir with the special
 #                suffix ".eremove", e.g. "chmod.eremove" to remove "chmod".
@@ -24,10 +34,6 @@
 #  @version    1.0 2015-03-15: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Initial revision.
 #
-################################################################################
-
-#!/bin/sh
-
 ################################################################################
 # Return codes
 
@@ -43,8 +49,8 @@ EXIT_ERROR_CLEAN_TMP=7
 ################################################################################
 # Init
 
-tool=$(readlink -f $0)
-tooldir=$(dirname $tool)
+tool=$(readlink -f "$0")
+tooldir=$(dirname "$tool")
 workdir=$1
 
 name=eupdate
@@ -61,55 +67,55 @@ if [ $# -eq 0 ]; then
 fi
 
 echo "Changing dir to $workdir"
-cd $workdir
+cd "$workdir"
 if [ "$?" -ne 0 ]; then
   echo "Error: Cannot change directory to $workdir. Exiting..."
   exit $EXIT_ERROR_CD_WORKDIR
 fi
 
-test -d $dir
+test -d "$dir"
 if [ "$?" -ne 0 ]; then
   echo "Error. Directory $workdir/$dir does not exist. Exiting..."
   exit $EXIT_ERROR_NO_EUPDATE
 fi
 
-if [ "$2" == "--deploy" ]; then
-  test -d $dir/etc/eupdate
+if [ "$2" = "--deploy" ]; then
+  test -d "$dir/etc/eupdate"
   if [ "$?" -eq 0 ]; then
     echo "Updating the eupdate tool"
-    cp $tooldir/eupdate $dir/etc/eupdate/
+    cp "$tooldir/eupdate" "$dir/etc/eupdate/"
   fi
 fi
 
 echo "Archiving $dir to $tgz"
-tar -czf $tgz $dir
+tar -czf "$tgz" "$dir"
 if [ "$?" -ne 0 ]; then
   echo "Error: Archiving failed. Exiting..."
   exit $EXIT_ERROR_CREATE_TGZ
 fi
 
 echo "Calculating MD5 checksum for $tgz"
-md5sum -t $tgz > $md5
+md5sum -t "$tgz" > "$md5"
 if [ "$?" -ne 0 ]; then
   echo "Error: MD5 calculation failed. Exiting..."
   exit $EXIT_ERROR_CALC_MD5
 fi
 
 echo "Creating distribution file $epd"
-tar -czf $epd $tgz $md5
+tar -czf "$epd" "$tgz" "$md5"
 if [ "$?" -ne 0 ]; then
   echo "Error: Distribution file creation failed. Exiting..."
   exit $EXIT_ERROR_CREATE_EPD
 fi
 
 echo "Removing temporary files"
-rm $tgz $md5
+rm "$tgz" "$md5"
 if [ "$?" -ne 0 ]; then
   echo "Error: Temporary files removal failed. Exiting..."
   exit $EXIT_ERROR_CLEAN_TMP
 fi
 
-echo "Success. Exiting..."
+echo "Success. Exiting edistro..."
 exit $EXIT_SUCCESS
 
 ################################################################################
