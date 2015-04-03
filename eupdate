@@ -224,7 +224,7 @@ done
 # Tool update
 
 if test -f "$sourcetool"; then
-  diff --brief "$sourcetool" "$desttool" > /dev/null
+  diff "$sourcetool" "$desttool" > /dev/null
   if [ "$?" -ne "0" ]; then
     echo "Updating the eupdate tool"
     cp "$sourcetool" "$desttool"
