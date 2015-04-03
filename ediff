@@ -17,6 +17,10 @@
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
 #
+#  @version    1.1 2015-04-03: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Busybox fully compatible version (POSIX sh
+#                              compatible).
+#
 #  @version    1.0 2015-03-28: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Initial revision.
 #
