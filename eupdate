@@ -301,6 +301,7 @@ for file in $files; do                                                          
   echo "Copying $dest/$file"
 
   sed -i "1irm -f \"$dest/$file\"" "$erevert"
+  rm -f "$dest/$file"
   cp -a "$source/$file" "$dest/$file"
 done
 
