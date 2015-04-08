@@ -6,7 +6,8 @@
 #  @brief      Creates update package from input directory
 #
 #  @usage:     1) Create the "eupdate" folder in your working directory. Copy
-#                 all your update contents into "eupdate".
+#                 all your update contents and the "manifest" file into
+#                 "eupdate".
 #              2) Run "./edistro WORKDIR".
 #              3) If success, then the update file eupdate.epd is located in
 #                 your working directory.

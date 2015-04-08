@@ -213,25 +213,28 @@ for file in $newdirs; do                                                        
   fi
 done
 
-for file in $newfiles; do                                                       # File to copy
-  if ! test -f "$tmpold/$file"; then
-    echo "File to create: $file"
+for file in $newfiles; do
+  test -h "$tmpold/$file"                                                       # Does the file exist already and is a link?
+  doupdate=$?
 
-    createdirs "$file"
-    cp -a "$tmpnew/$file" "$file"
-  elif ! test -h "$tmpold/$file"; then
-    echo "Link to create: $file"
+  if [ "$doupdate" -ne "0" ]; then
+    test -f "$tmpold/$file"                                                     # If the link doesn't exist, is a regular file there?
+    doupdate=$?
 
-    createdirs "$file"
-    cp -a "$tmpnew/$file" "$file"
-  else
-    diff --brief "$tmpold/$file" "$tmpnew/$file" > /dev/null
-    if [ "$?" -ne "0" ]; then
-      echo "File to update: $file"
-
-      createdirs "$file"
-      cp -a "$tmpnew/$file" "$file"
+    if [ "$doupdate" -eq "0" ]; then
+      cmp "$tmpold/$file" "$tmpnew/$file" > /dev/null                           # File exists -> compare
+      doupdate=$?
     fi
+  else
+    test $(readlink "$tmpold/$file") = $(readlink "$tmpnew/$file")              # Link exists -> compare
+    doupdate=$?
+  fi
+
+  if [ "$doupdate" -ne "0" ]; then                                              # Create file if "doupdate" signalizes the need to do it.
+    echo "File to update: $file"
+
+    createdirs "$file"
+    cp -a "$tmpnew/$file" "$file"
   fi
 done
 
