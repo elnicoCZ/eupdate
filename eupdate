@@ -113,6 +113,23 @@ isFileOrLink()
   echo $((file_exists && link_exists))
 }
 
+# Checks if a directory of a given name exists (not just link).
+# Input: Path to directory
+# Output: Prints out 0 in case it exists, 1 if not.
+isDirectory()
+{
+  local dir_exists
+  local link_exists
+
+  test -d "$1"
+  dir_exists=$?
+
+  test -h "$1"
+  link_exists=$?
+
+  echo $((dir_exists || ! link_exists))
+}
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -229,7 +246,8 @@ cd "$source"
 tree="$(find)"
 
 for file in $tree; do                                                           # Dirs
-  if test -d "$source/$file"; then
+  res=$(isDirectory "$source/$file")
+  if [ "$res" -eq "0" ]; then
     dirs="$dirs $file"
   fi
 done
@@ -277,7 +295,8 @@ if ! test -d "$backup"; then
 fi
 
 for file in $dirs; do                                                           # Creates directories which exist in source but not in backup.
-  if ! test -d "$backup/$file"; then
+  res=$(isDirectory "$source/$file")
+  if [ "$res" -eq "0" ]; then
     echo "Creating backup directory $backup/$file"
 
     sed -i "1irmdir \"$backup/$file\"" "$erevert"
