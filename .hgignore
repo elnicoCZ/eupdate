@@ -1,3 +1,6 @@
 syntax: glob
 *.~
 *.epd
+tmp/
+201*/
+
