@@ -25,6 +25,9 @@
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
 #
+#  @version    1.3 2015-12-10: Petr Kubiznak <kubiznak.petr@elnico.cz>
+#                              Read-only root file system handling.
+#
 #  @version    1.2 2015-04-03: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Busybox fully compatible version (POSIX sh
 #                              compatible).
@@ -60,9 +63,11 @@ tgz="$name.tgz"
 md5="$name.md5"
 
 tmp="$workdir/tmp/"
-config="$workdir/config/"
+configdir="$workdir/config/"
 backup="$workdir/backup"
+configfile="config"
 manifest="manifest"
+eutils="$workdir/eutils"
 erevert="$workdir/erevert"
 eremove=".eremove"
 
@@ -79,9 +84,15 @@ desttool="$workdir/$0"
 # Input: Return code
 quit()
 {
+  # Cleanup
   if test -d "$tmp"; then
     rm -rf "$tmp"
   fi
+
+  # Remount back to read-only file system
+  rootfs_lock
+
+  echo "=== eupdate ended ==="
   exit "$1"
 }
 
@@ -103,6 +114,17 @@ isFileOrLink()
 }
 
 ################################################################################
+################################################################################
+################################################################################
+
+echo "=== eupdate started ==="
+. "$eutils"                                                                     # Source the config file and utility functions
+
+################################################################################
+# Handle read-only root file system
+rootfs_unlock
+
+################################################################################
 # Prepare temp directory
 
 if test -d "$tmp"; then                                                         # Remove all possible content of the temp directory
@@ -118,7 +140,7 @@ fi
 
 if [ $# -eq 0 ]; then
   echo "Error: Wrong input parameters. Exiting..."
-  exit $EXIT_ERROR_WRONG_PARAMETERS
+  quit $EXIT_ERROR_WRONG_PARAMETERS
 fi
 
 test -f "$epd"
@@ -167,7 +189,7 @@ fi
 ################################################################################
 # Version check
 
- . "$config/$manifest"                                                          # Reads the installed version from the manifest file
+ . "$configdir/$manifest"                                                       # Reads the installed version from the manifest file
 cur_version=$EUPDATE_VERSION
 
  . "$source/$manifest"                                                          # Reads the update version from the update manifest file
@@ -188,14 +210,14 @@ if [ "$updatable" -eq 0 ]; then                                                 
 fi
 
 echo "Updating from version $cur_version to version $new_version"
-cp "$config/$manifest" "$config/$manifest.prev"                                 # Overwrites the manifest file
-cp "$source/$manifest" "$config/$manifest"
+cp "$configdir/$manifest" "$configdir/$manifest.prev"                           # Overwrites the manifest file
+cp "$source/$manifest" "$configdir/$manifest"
 rm "$source/$manifest"
 
 echo "rm -f \"$erevert\"" > "$erevert"
-if test -f "$config/$manifest.prev"; then
-  sed -i "1irm -f \"$config/$manifest.prev\"" "$erevert"
-  sed -i "1icp \"$config/$manifest.prev\" \"$config/$manifest\"" "$erevert"
+if test -f "$configdir/$manifest.prev"; then
+  sed -i "1irm -f \"$configdir/$manifest.prev\"" "$erevert"
+  sed -i "1icp \"$configdir/$manifest.prev\" \"$configdir/$manifest\"" "$erevert"
 fi
 
 chmod +x "$erevert"
@@ -249,7 +271,7 @@ if test -d "$backup"; then                                                      
   rm -rf "$backup"
 fi
 
-sed -i "1irmdir \"$backup\"" "$erevert"                                             # Create the backup directory
+sed -i "1irmdir \"$backup\"" "$erevert"                                         # Create the backup directory
 if ! test -d "$backup"; then
   mkdir "$backup"
 fi
@@ -311,7 +333,14 @@ for file in $remfiles; do                                                       
   rm -f "$dest/$file"
 done
 
-sed -i "1i#!/bin/sh" "$erevert"
+# header
+sed -i "1i#!/bin/sh\\
+configdir=$configdir\\
+configfile=$configfile\\
+. \"$eutils\"\\
+rootfs_unlock" "$erevert"
+# footer
+sed -i "\$arootfs_lock" "$erevert"
 
 ################################################################################
 # Cleanup and quit
