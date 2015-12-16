@@ -16,6 +16,19 @@
 . "$configdir/$configfile"
 
 ################################################################################
+# Return values
+
+EXIT_SUCCESS=0
+EXIT_UPDATE_NOT_POSSIBLE=1
+EXIT_ERROR_NO_EPD_FILE=2
+EXIT_ERROR_EXTRACTING_EPD=3
+EXIT_ERROR_EXTRACTING_TGZ=4
+EXIT_ERROR_NO_MD5_FILE=5
+EXIT_ERROR_NO_TGZ_FILE=6
+EXIT_ERROR_MD5_MISMATCH=7
+EXIT_ERROR_WRONG_PARAMETERS=8
+
+################################################################################
 # Remount read-only file system for read-write access, if we are granted that
 # permition in the config file and the file system is read-only.
 rootfs_unlock()
