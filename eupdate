@@ -49,7 +49,7 @@ name=eupdate
 tgz="$name.tgz"
 md5="$name.md5"
 
-tmp="$workdir/tmp/"
+tmp="/tmp/eupdate/"
 configdir="$workdir/config/"
 backup="$workdir/backup"
 configfile="config"
@@ -125,10 +125,6 @@ echo "=== eupdate started ==="
 . "$eutils"                                                                     # Source the config file and utility functions
 
 ################################################################################
-# Handle read-only root file system
-rootfs_unlock
-
-################################################################################
 # Prepare temp directory
 
 if test -d "$tmp"; then                                                         # Remove all possible content of the temp directory
@@ -136,7 +132,7 @@ if test -d "$tmp"; then                                                         
 fi
 
 if ! test -d "$tmp"; then                                                       # Create a temp directory if not exist
-  mkdir "$tmp"
+  mkdir -p "$tmp"
 fi
 
 ################################################################################
@@ -212,6 +208,14 @@ if [ "$updatable" -eq 0 ]; then                                                 
   echo "Update from version $cur_version to version $new_version not possible"
   quit $EXIT_UPDATE_NOT_POSSIBLE
 fi
+
+################################################################################
+# Remount read-only root file system for RDWR access
+
+rootfs_unlock
+
+################################################################################
+# Manifest update
 
 echo "Updating from version $cur_version to version $new_version"
 cp "$configdir/$manifest" "$configdir/$manifest.prev"                           # Overwrites the manifest file
