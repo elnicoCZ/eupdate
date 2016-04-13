@@ -198,7 +198,7 @@ updatable_from=$EUPDATE_APPLICABLE_FOR
 
 updatable=0                                                                     # Searches if update could be applied to the currently installed version
 for version in $updatable_from; do
-  if [ "$version" -eq "$cur_version" ]; then
+  if [ "$version" == "$cur_version" ]; then
     updatable=1
     break
   fi
