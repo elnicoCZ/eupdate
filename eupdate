@@ -5,8 +5,10 @@
 #  @file       eupdate
 #  @brief      Deploys update package in target system
 #
-#  @usage:     Start the script providing path to epd:
+#  @usage:     Start the script providing path to epd or a character device:
 #                ./eupdate eupdate.epd
+#              or
+#                ./eupdate /dev/mtd1
 #
 #  @remarks:   * Strongly recommended to use #!/bin/sh instead of bash or other
 #                shells. Bash is more relaxed and provides more functionality,
@@ -139,13 +141,13 @@ fi
 # Extract the epd file into tmp
 
 if [ $# -eq 0 ]; then
-  echo "Error: Wrong input parameters. Exiting..."
+  echo "Error: Invalid input argument. Exiting..."
   quit $EXIT_ERROR_WRONG_PARAMETERS
 fi
 
-test -f "$epd"
+test -f "$epd" || test -c "$epd"
 if [ "$?" -ne 0 ]; then
-  echo "Error: Please specify input epd file as first argument. Exiting..."
+  echo "Error: Please specify input epd file or device as first argument. Exiting..."
   quit $EXIT_ERROR_NO_EPD_FILE
 fi
 
