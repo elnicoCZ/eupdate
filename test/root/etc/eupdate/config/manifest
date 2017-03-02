@@ -1,4 +1,10 @@
-#!/bin/sh
+################################################################################
+# EUPDATE_VERSION: Version of this update
+################################################################################
+EUPDATE_VERSION="011"
 
-export EUPDATE_VERSION="011"
-export EUPDATE_APPLICABLE_FOR="010 011"
+################################################################################
+# EUPDATE_APPLICABLE_FOR: Array of versions for which this update could be
+#                         applied. Use the following format: "000 001 002".
+################################################################################
+EUPDATE_APPLICABLE_FOR="010 011"

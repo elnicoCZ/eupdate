@@ -1,0 +1,7 @@
+################################################################################
+### EUPDATE_ALLOW_RO_ROOT_REMOUNT
+# Set to yes if you want eupdate to test the _root_ filesystem (/)
+# for read-write access and automatically remount if read-only file system
+# is detected.
+################################################################################
+EUPDATE_ALLOW_RO_ROOT_REMOUNT=no

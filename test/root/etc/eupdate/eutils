@@ -1,0 +1,60 @@
+###############################################################################
+#
+#  @file       eutils
+#  @brief      Utility functions, not to be executed directly
+#
+#  @usage:     The script is sourced by eupdate and erevert automatically.
+#
+#  @copyright  Elnico Ltd. All rights reserved.
+#  @author     Petr Kubiznak <kubiznak.petr@elnico.cz>
+#
+#  @version    1.0 2015-12-11: Petr Kubiznak <kubiznak.petr@elnico.cz>
+#                              Initial revision.
+#
+################################################################################
+
+. "$configdir/$configfile"
+
+################################################################################
+# Return values
+
+EXIT_SUCCESS=0
+EXIT_UPDATE_NOT_POSSIBLE=1
+EXIT_ERROR_NO_EPD_FILE=2
+EXIT_ERROR_EXTRACTING_EPD=3
+EXIT_ERROR_EXTRACTING_TGZ=4
+EXIT_ERROR_NO_MD5_FILE=5
+EXIT_ERROR_NO_TGZ_FILE=6
+EXIT_ERROR_MD5_MISMATCH=7
+EXIT_ERROR_WRONG_PARAMETERS=8
+
+################################################################################
+# Remount read-only file system for read-write access, if we are granted that
+# permition in the config file and the file system is read-only.
+rootfs_unlock()
+{
+  if [ "$EUPDATE_ALLOW_RO_ROOT_REMOUNT" = "yes" ]; then
+    tempfile=$(mktemp -p / 2>/dev/null) && { rm "$tempfile"; rootaccess="rw"; } || rootaccess="ro"
+    if [ "$rootaccess" = "ro" ]; then
+      echo -e "Read-only root file system. Trying to remount... \c"
+      mount -o remount,rw /dev/rootfs /
+      [ $? -eq 0 ] && echo "OK" || echo "FAILURE"
+    fi
+  fi
+}
+
+################################################################################
+# Remount back to read-only file system
+rootfs_lock()
+{
+  sync
+  if [ "$rootaccess" = "ro" ]; then
+#    echo -e "Remounting the root file system for read-only access... \c"
+#    mount -o remount,ro /dev/rootfs /
+#    [ $? -eq 0 ] && echo "OK" || echo "FAILURE"
+    echo "We would remount here, but it is not safe - leaving RDWR!"
+    # More at http://stackoverflow.com/questions/34273092/replacing-a-running-binary-on-read-only-file-system
+  fi
+}
+
+################################################################################

@@ -1,102 +1,157 @@
+#!/bin/sh
+
 ###############################################################################
 #
 #  @file       eupdate
-#  @brief      Applies update
+#  @brief      Deploys update package in target system
 #
-#  @usage:     1) Go to the eupdate working directory (required):
-#                 cd /etc/eupdate
-#              2) Start the script providing path to epd:
-#                 ./eupdate eupdate.epd
+#  @usage:     Start the script providing path to epd or a character device:
+#                ./eupdate eupdate.epd
+#              or
+#                ./eupdate /dev/mtd1
 #
-#  @remarks:   * In the working directory new script called "erevert" will be 
+#  @remarks:   * Strongly recommended to use #!/bin/sh instead of bash or other
+#                shells. Bash is more relaxed and provides more functionality,
+#                but this functionality on the other hand often doesn't even
+#                work reliably accross different bash versions!
+#
+#              * Validator for shell scripting: http://www.shellcheck.net.
+#
+#              * In the working directory new script called "erevert" will be 
 #                created. Besides that the previous version will be backed up
-#                to workdir/backup. To revert back to just run ./erevert.
-#              * The tool expects to be located in /etc/eupdate. 
+#                to tooldir/backup. To revert back just run ./erevert. The
+#                erevert script deletes itself at the end of its run.
+#
+#              * The tool expects to be located in /etc/eupdate.
 #
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
+#
+#  @version    1.3 2015-12-10: Petr Kubiznak <kubiznak.petr@elnico.cz>
+#                              Read-only root file system handling.
+#
+#  @version    1.2 2015-04-03: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Busybox fully compatible version (POSIX sh
+#                              compatible).
+#
+#  @version    1.1 2015-03-22: Jan Kubiznak <kubiznak.jan@elnico.cz>
+#                              Release version (tested on VF6).
 #
 #  @version    1.0 2015-03-08: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Initial revision.
 #
 ################################################################################
-
-#!/bin/sh
-
-################################################################################
-# Return values
-
-EXIT_SUCCESS=0
-EXIT_UPDATE_NOT_POSSIBLE=1
-EXIT_ERROR_NO_EPD_FILE=2
-EXIT_ERROR_EXTRACTING_EPD=3
-EXIT_ERROR_EXTRACTING_TGZ=4
-EXIT_ERROR_NO_MD5_FILE=5
-EXIT_ERROR_NO_TGZ_FILE=6
-EXIT_ERROR_MD5_MISMATCH=7
-EXIT_ERROR_WRONG_PARAMETERS=8
-
-################################################################################
 # Init
 
-tool=$(readlink -f $0)
-workdir=$(dirname $tool)
-epd=$1
+tool=$(readlink -f "$0")
+workdir=$(dirname "$tool")
+epd="$1"
 
 name=eupdate
-tgz=$name.tgz
-md5=$name.md5
+tgz="$name.tgz"
+md5="$name.md5"
 
-tmp=$workdir/tmp/
-config=$workdir/config/
-backup=$workdir/backup
-manifest=manifest
-erevert=$workdir/erevert
-eremove=.eremove
+tmp="/tmp/eupdate/"
+configdir="$workdir/config/"
+backup="$workdir/backup"
+configfile="config"
+manifest="manifest"
+eutils="$workdir/eutils"
+erevert="$workdir/erevert"
+eremove=".eremove"
 
-source=$tmp/eupdate/
-dest=$workdir/../../
+source="$tmp/eupdate/"
+dest="$workdir/../../"
 
-sourcetool=$source/etc/eupdate/$0
-desttool=$workdir/$0
+sourcetool="$source/etc/eupdate/$0"
+desttool="$workdir/$0"
 
 ################################################################################
 # Functions
 
-function quit() {
-  # Performs clenaup and quits
-  if test -d $tmp; then
-    rm -r $tmp
+# Performs clenaup and quits
+# Input: Return code
+quit()
+{
+  # Cleanup
+  if test -d "$tmp"; then
+    rm -rf "$tmp"
   fi
-  exit $1
+
+  # Remount back to read-only file system
+  rootfs_lock
+
+  echo "=== eupdate ended ==="
+  exit "$1"
 }
+
+# Checks if file of a given name exists (not important if it's a regular file or link).
+# Input: Path to file
+# Output: Prints out 0 in case it exists, 1 if not.
+isFileOrLink()
+{
+  local file_exists
+  local link_exists
+
+  test -f "$1"
+  file_exists=$?
+
+  test -h "$1"
+  link_exists=$?
+
+  echo $((file_exists && link_exists))
+}
+
+# Checks if a directory of a given name exists (not just link).
+# Input: Path to directory
+# Output: Prints out 0 in case it exists, 1 if not.
+isDirectory()
+{
+  local dir_exists
+  local link_exists
+
+  test -d "$1"
+  dir_exists=$?
+
+  test -h "$1"
+  link_exists=$?
+
+  echo $((dir_exists || ! link_exists))
+}
+
+################################################################################
+################################################################################
+################################################################################
+
+echo "=== eupdate started ==="
+. "$eutils"                                                                     # Source the config file and utility functions
 
 ################################################################################
 # Prepare temp directory
 
-if test -d $tmp; then                                                           # Remove all possible content of the temp directory
-  rm -r $tmp
+if test -d "$tmp"; then                                                         # Remove all possible content of the temp directory
+  rm -rf "$tmp"
 fi
 
-if ! test -d $tmp; then                                                         # Create a temp directory if not exist
-  mkdir $tmp
+if ! test -d "$tmp"; then                                                       # Create a temp directory if not exist
+  mkdir -p "$tmp"
 fi
 
 ################################################################################
 # Extract the epd file into tmp
 
 if [ $# -eq 0 ]; then
-  echo "Error: Wrong input parameters. Exiting..."
-  exit $EXIT_ERROR_WRONG_PARAMETERS
+  echo "Error: Invalid input argument. Exiting..."
+  quit $EXIT_ERROR_WRONG_PARAMETERS
 fi
 
-test -f $epd
+test -f "$epd" || test -c "$epd"
 if [ "$?" -ne 0 ]; then
-  echo "Error: Please specify input epd file as first argument. Exiting..."
+  echo "Error: Please specify input epd file or device as first argument. Exiting..."
   quit $EXIT_ERROR_NO_EPD_FILE
 fi
 
-tar -xzf $epd -C $tmp                                                           # Extract update to tmp
+tar -xzf "$epd" -C "$tmp"                                                       # Extract update to tmp
 if [ "$?" -ne 0 ]; then
   echo "Error: Extracting $epd failed. Exiting..."
   quit $EXIT_ERROR_EXTRACTING_EPD
@@ -105,21 +160,21 @@ fi
 ################################################################################
 # MD5 checksum & tgz extract
 
-cd $tmp
+cd "$tmp"
 
-test -f $md5
+test -f "$md5"
 if [ "$?" -ne 0 ]; then
   echo "Error: $md5 file not found in $epd Exiting..."
   quit $EXIT_ERROR_NO_MD5_FILE
 fi
 
-test -f $tgz
+test -f "$tgz"
 if [ "$?" -ne 0 ]; then
   echo "Error: $tgz file not found in $epd Exiting..."
   quit $EXIT_ERROR_NO_TGZ_FILE
 fi
 
-md5sum -c --status $md5                                                         # MD5 checksum check
+md5sum -c --status "$md5"                                                       # MD5 checksum check
 if [ $? -ne 0 ]; then
   echo "Error: MD5 checksum mismatch. Exiting..."
   quit $EXIT_ERROR_MD5_MISMATCH
@@ -127,7 +182,7 @@ fi
 echo "MD5 checksum OK"
 
 echo "Extracting $tgz"
-tar -xzf $tgz -C $tmp                                                           # Extract update to tmp
+tar -xzf "$tgz" -C "$tmp"                                                       # Extract update to tmp
 if [ "$?" -ne 0 ]; then
   echo "Error: Extracting $tgz failed. Exiting..."
   quit $EXIT_ERROR_EXTRACTING_TGZ
@@ -136,16 +191,16 @@ fi
 ################################################################################
 # Version check
 
-. $config/$manifest                                                             # Reads the installed version from the manifest file
+ . "$configdir/$manifest"                                                       # Reads the installed version from the manifest file
 cur_version=$EUPDATE_VERSION
 
-. $source/$manifest                                                             # Reads the update version from the update manifest file
+ . "$source/$manifest"                                                          # Reads the update version from the update manifest file
 new_version=$EUPDATE_VERSION
 updatable_from=$EUPDATE_APPLICABLE_FOR
 
 updatable=0                                                                     # Searches if update could be applied to the currently installed version
 for version in $updatable_from; do
-  if [ "$version" == "$cur_version" ]; then
+  if [ "$version" = "$cur_version" ]; then
     updatable=1
     break
   fi
@@ -156,34 +211,44 @@ if [ "$updatable" -eq 0 ]; then                                                 
   quit $EXIT_UPDATE_NOT_POSSIBLE
 fi
 
-echo "Updating from version $cur_version to version $new_version"
-cp $config/$manifest $config/$manifest.prev                                     # Overwrites the manifest file
-cp $source/$manifest $config/$manifest
-rm $source/$manifest
+################################################################################
+# Remount read-only root file system for RDWR access
 
-echo "rm $erevert" > $erevert
-if test -f $config/$manifest.prev; then
-  sed -i "1irm $config/$manifest.prev" $erevert
-  sed -i "1icp $config/$manifest.prev $config/$manifest" $erevert
+rootfs_unlock
+
+################################################################################
+# Manifest update
+
+echo "Updating from version $cur_version to version $new_version"
+cp "$configdir/$manifest" "$configdir/$manifest.prev"                           # Overwrites the manifest file
+cp "$source/$manifest" "$configdir/$manifest"
+rm "$source/$manifest"
+
+echo "rm -f \"$erevert\"" > "$erevert"
+if test -f "$configdir/$manifest.prev"; then
+  sed -i "1irm -f \"$configdir/$manifest.prev\"" "$erevert"
+  sed -i "1icp \"$configdir/$manifest.prev\" \"$configdir/$manifest\"" "$erevert"
 fi
 
-chmod +x $erevert
+chmod +x "$erevert"
 
 ################################################################################
 # Obtains a list of all directories and files in source dir
 
-cd $source
+cd "$source"
 tree="$(find)"
 
 for file in $tree; do                                                           # Dirs
-  if test -d $source/$file; then
+  res=$(isDirectory "$source/$file")
+  if [ "$res" -eq "0" ]; then
     dirs="$dirs $file"
   fi
 done
 
 for file in $tree; do                                                           # Files
-  if test -f $source/$file; then
-    echo $file | grep $eremove > /dev/null
+  res=$(isFileOrLink "$source/$file")
+  if [ "$res" -eq "0" ]; then
+    echo "$file" | grep "$eremove" > /dev/null
     if [ $? -ne 0 ]; then
       files="$files $file"                                                      # Normal files
     else
@@ -195,16 +260,16 @@ done
 ################################################################################
 # Tool update
 
-if test -f $sourcetool; then
-  diff --brief $sourcetool $desttool > /dev/null
+if test -f "$sourcetool"; then
+  diff "$sourcetool" "$desttool" > /dev/null
   if [ "$?" -ne "0" ]; then
     echo "Updating the eupdate tool"
-    cp $sourcetool $desttool
+    cp "$sourcetool" "$desttool"
 
     echo "Restarting the script"
-    cd $workdir
-    sh $erevert
-    sh $desttool $epd
+    cd "$workdir"
+    sh "$erevert"
+    sh "$desttool" "$epd"
 
     quit $EXIT_SUCCESS
   fi
@@ -213,41 +278,44 @@ fi
 ################################################################################
 # Backup
 
-if test -d $backup; then                                                        # Remove the previous backup
-  rm -r $backup
+if test -d "$backup"; then                                                      # Remove the previous backup
+  rm -rf "$backup"
 fi
 
-sed -i "1irmdir $backup" $erevert                                               # Create the backup directory
-if ! test -d $backup; then
-  mkdir $backup
+sed -i "1irmdir \"$backup\"" "$erevert"                                         # Create the backup directory
+if ! test -d "$backup"; then
+  mkdir "$backup"
 fi
 
 for file in $dirs; do                                                           # Creates directories which exist in source but not in backup.
-  if ! test -d $backup/$file; then
-    echo -e "Creating backup directory $backup/$file"
+  res=$(isDirectory "$source/$file")
+  if [ "$res" -eq "0" ]; then
+    echo "Creating backup directory $backup/$file"
 
-    sed -i "1irmdir $backup/$file" $erevert
-    mkdir $backup/$file
+    sed -i "1irmdir \"$backup/$file\"" "$erevert"
+    mkdir "$backup/$file"
   fi
 done
 
 for file in $files; do                                                          # Creates a backup file for every file in dest which is to be overwritten.
-  if test -f $dest/$file; then
-    echo -e "Making a backup for $dest/$file"
+  res=$(isFileOrLink "$dest/$file")
+  if [ "$res" -eq "0" ]; then
+    echo "Making a backup for $dest/$file"
 
-    sed -i "1irm ${backup}/${file}" $erevert
-    sed -i "1icp ${backup}/${file} ${dest}/${file}" $erevert
-    cp $dest/$file $backup/$file
+    sed -i "1irm -f \"${backup}/${file}\"" "$erevert"
+    sed -i "1icp -a \"${backup}/${file}\" \"${dest}/${file}\"" "$erevert"
+    cp -a "$dest/$file" "$backup/$file"
   fi
 done
 
 for file in $remfiles; do                                                       # Creates a backup file for every file in dest which is to be deleted.
-  if test -f $dest/$file; then
-    echo -e "Making a backup for $dest/$file"
+  res=$(isFileOrLink "$dest/$file")
+  if [ "$res" -eq "0" ]; then
+    echo "Making a backup for $dest/$file"
 
-    sed -i "1irm ${backup}/${file}" $erevert
-    sed -i "1icp ${backup}/${file} ${dest}/${file}" $erevert
-    cp $dest/$file $backup/$file
+    sed -i "1irm -f \"${backup}/${file}\"" "$erevert"
+    sed -i "1icp -a \"${backup}/${file}\" \"${dest}/${file}\"" "$erevert"
+    cp -a "$dest/$file" "$backup/$file"
   fi
 done
 
@@ -255,30 +323,39 @@ done
 # Deploy
 
 for file in $dirs; do                                                           # Creates directories which exist in source but not in dest.
-  if ! test -d $dest/$file; then
-    echo -e "Creating new directory $dest/$file"
+  if ! test -d "$dest/$file"; then
+    echo "Creating new directory $dest/$file"
 
-    sed -i "1irmdir $dest/$file" $erevert
-    mkdir $dest/$file
+    sed -i "1irmdir \"$dest/$file\"" "$erevert"
+    mkdir "$dest/$file"
   fi
 done
 
 for file in $files; do                                                          # Copies all files from source to dest.
-  echo -e "Copying $dest/$file"
+  echo "Copying $dest/$file"
 
-  sed -i "1irm $dest/$file" $erevert
-  cp -a $source/$file $dest/$file
+  sed -i "1irm -f \"$dest/$file\"" "$erevert"
+  rm -f "$dest/$file"
+  cp -a "$source/$file" "$dest/$file"
 done
 
 for file in $remfiles; do                                                       # Removes marked files.
-  echo -e "Removing $dest/$file"
+  echo "Removing $dest/$file"
 
-  rm -f $dest/$file
+  rm -f "$dest/$file"
 done
 
-sed -i "1i#!/bin/sh" $erevert
+# header
+sed -i "1i#!/bin/sh\\
+configdir=$configdir\\
+configfile=$configfile\\
+. \"$eutils\"\\
+rootfs_unlock" "$erevert"
+# footer
+sed -i "\$arootfs_lock" "$erevert"
 
 ################################################################################
 # Cleanup and quit
 
+echo "Success. Exiting eupdate..."
 quit $EXIT_SUCCESS
