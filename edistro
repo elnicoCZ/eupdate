@@ -8,7 +8,9 @@
 #  @usage:     1) Create the "eupdate" folder in your working directory. Copy
 #                 all your update contents and the "manifest" file into
 #                 "eupdate".
-#              2) Run "./edistro WORKDIR".
+#              2) Run "./edistro WORKDIR [KEYFILE]".
+#                 If you want to equip your package with a signature, provide
+#                 a path to your private key as KEYFILE.
 #              3) If success, then the update file eupdate.epd is located in
 #                 your working directory.
 #
@@ -19,8 +21,8 @@
 #
 #              * Validator for shell scripting: http://www.shellcheck.net.
 #
-#              * To deploy the eupdate script to ./test/eupdate/etc/eupdate
-#                run ./edistro WORKDIR --deploy
+#              * To deploy the eupdate script to [WORKDIR]/eupdate/etc/eupdate
+#                run ./edistro WORKDIR [KEYFILE] --deploy
 #
 #              * If update should also remove a file from the destination, then
 #                such file should be created in the update dir with the special
@@ -28,6 +30,9 @@
 #
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Jan Kubiznak <kubiznak.jan@elnico.cz>
+#
+#  @version    1.3 2019-01-31: Petr Kubiznak <kubiznak.petr@elnico.cz>
+#                              Support package signature.
 #
 #  @version    1.2 2015-04-03: Jan Kubiznak <kubiznak.jan@elnico.cz>
 #                              Busybox fully compatible version (POSIX sh
@@ -44,25 +49,32 @@
 
 EXIT_SUCCESS=0
 EXIT_ERROR_WRONG_PARAMETERS=1
-EXIT_ERROR_CD_WORKDIR=2
 EXIT_ERROR_NO_EUPDATE=3
 EXIT_ERROR_CREATE_TGZ=4
 EXIT_ERROR_CALC_MD5=5
 EXIT_ERROR_CREATE_EPD=6
 EXIT_ERROR_CLEAN_TMP=7
+EXIT_ERROR_CALC_SIG=8
 
 ################################################################################
 # Init
 
 tool=$(readlink -f "$0")
 tooldir=$(dirname "$tool")
-workdir=$1
+workdir="$1"
+keyfile=""
+if [ -f "$2" ]; then
+  keyfile="$2"
+  shift
+fi
+[ "$2" = "--deploy" ] && deploy=1 || deploy=0
 
 name=eupdate
-dir=$name
-tgz=$name.tgz
-md5=$name.md5
-epd=$name.epd
+dir="$workdir/$name"
+tgz="$workdir/$name.tgz"
+md5="$workdir/$name.md5"
+sig="$workdir/$name.sig"
+epd="$workdir/$name.epd"
 
 ################################################################################
 
@@ -71,25 +83,15 @@ if [ $# -eq 0 ]; then
   exit $EXIT_ERROR_WRONG_PARAMETERS
 fi
 
-echo "Changing dir to $workdir"
-cd "$workdir"
-if [ "$?" -ne 0 ]; then
-  echo "Error: Cannot change directory to $workdir. Exiting..."
-  exit $EXIT_ERROR_CD_WORKDIR
-fi
-
-test -d "$dir"
-if [ "$?" -ne 0 ]; then
-  echo "Error. Directory $workdir/$dir does not exist. Exiting..."
+if [ ! -d "$dir" ]; then
+  echo "Error. Directory $dir does not exist. Exiting..."
   exit $EXIT_ERROR_NO_EUPDATE
 fi
 
-if [ "$2" = "--deploy" ]; then
-  test -d "$dir/etc/eupdate"
-  if [ "$?" -eq 0 ]; then
-    echo "Updating the eupdate tool"
-    cp "$tooldir/eupdate" "$dir/etc/eupdate/"
-  fi
+if [ "$deploy" -eq 1 ]; then
+  echo "Updating the eupdate tool"
+  mkdir -p "$dir/etc/eupdate"
+  cp "$tooldir/eupdate" "$tooldir/eutils" "$dir/etc/eupdate/"
 fi
 
 echo "Archiving $dir to $tgz"
@@ -106,15 +108,26 @@ if [ "$?" -ne 0 ]; then
   exit $EXIT_ERROR_CALC_MD5
 fi
 
+if [ -f "$keyfile" ]; then
+  echo "Calculating signature for $tgz"
+  openssl dgst -sign "$keyfile" "$tgz" > "$sig"
+  if [ "$?" -ne 0 ]; then
+    echo "Error: Signature calculation failed. Exiting..."
+    exit $EXIT_ERROR_CALC_SIG
+  fi
+else
+  sig=""
+fi
+
 echo "Creating distribution file $epd"
-tar -czf "$epd" "$tgz" "$md5"
+tar -czf "$epd" "$tgz" "$md5" $sig
 if [ "$?" -ne 0 ]; then
   echo "Error: Distribution file creation failed. Exiting..."
   exit $EXIT_ERROR_CREATE_EPD
 fi
 
 echo "Removing temporary files"
-rm "$tgz" "$md5"
+rm "$tgz" "$md5" $sig
 if [ "$?" -ne 0 ]; then
   echo "Error: Temporary files removal failed. Exiting..."
   exit $EXIT_ERROR_CLEAN_TMP

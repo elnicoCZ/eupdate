@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ $# -ne 1 ]; then
+	echo "Calling sequence: $0 FILENAME"
+	exit 1
+fi
+
+FILENAME="$1"
+
+ssh-keygen -q -f "$FILENAME" -N '' -t rsa
+ssh-keygen -e -f "${FILENAME}.pub" -m PKCS8 > "${FILENAME}.pem"

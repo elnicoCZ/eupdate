@@ -8,6 +8,9 @@
 #  @copyright  Elnico Ltd. All rights reserved.
 #  @author     Petr Kubiznak <kubiznak.petr@elnico.cz>
 #
+#  @version    1.1 2019-01-31: Petr Kubiznak <kubiznak.petr@elnico.cz>
+#                              Exit codes for package signature.
+#
 #  @version    1.0 2015-12-11: Petr Kubiznak <kubiznak.petr@elnico.cz>
 #                              Initial revision.
 #
@@ -27,6 +30,8 @@ EXIT_ERROR_NO_MD5_FILE=5
 EXIT_ERROR_NO_TGZ_FILE=6
 EXIT_ERROR_MD5_MISMATCH=7
 EXIT_ERROR_WRONG_PARAMETERS=8
+EXIT_ERROR_NO_SIG_FILE=9
+EXIT_ERROR_SIG_MISMATCH=10
 
 ################################################################################
 # Remount read-only file system for read-write access, if we are granted that

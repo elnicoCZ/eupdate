@@ -5,3 +5,10 @@
 # is detected.
 ################################################################################
 EUPDATE_ALLOW_RO_ROOT_REMOUNT=no
+
+################################################################################
+### EUPDATE_REQUIRE_SIGNATURE
+# Set to yes if you want eupdate to require signed packages. In such case,
+# eupdate will refuse to install a package without valid signature.
+################################################################################
+EUPDATE_REQUIRE_SIGNATURE=no
