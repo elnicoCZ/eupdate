@@ -11,4 +11,4 @@ EUPDATE_ALLOW_RO_ROOT_REMOUNT=no
 # Set to yes if you want eupdate to require signed packages. In such case,
 # eupdate will refuse to install a package without valid signature.
 ################################################################################
-EUPDATE_REQUIRE_SIGNATURE=yes
+EUPDATE_REQUIRE_SIGNATURE=no

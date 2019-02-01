@@ -21,6 +21,14 @@ Now execute the **edistro** utility to produce the *.epd* package: `./edistro te
 
 The *.epd* package is actually just a *.tgz* archive. To examine its contents, one should typically need just to change the extension.
 
+### Signature
+
+The *.epd* package can be digitally signed using a private RSA key. To generate a signed package, add the path to the private key as the second argument of **edistro**. For example, to generate a signed package from the test data, execute: `./edistro test/ keys/testkey`. *testkey* is a testing private RSA key.
+
+To generate custom RSA key, one can use the **keygen** script. It uses *ssh-keygen* to generate a pair of private and public RSA keys, and to further convert the public RSA key in the *PEM* format recognized by *openssl*.
+
+For example, executing `./keygen keys/testkey` generated the files *keys/testkey* (private RSA key), *keys/testkey.pub* (public RSA key) and *keys/testkey.pem* (public RSA key in PEM format).
+
 ## How to Install an *.epd* File
 
 To install the update file, the target file system has to feature the **eupdate** tool. This is usually located in */etc/eupdate/* directory, like in our testing tree (*test/root/etc/eupdate/*). That directory must further contain the *config/* directory, containing the *manifest* and *config* files.
@@ -31,3 +39,11 @@ Here is our testing example:
   `./eupdate ../../../eupdate.epd`
 
 Eupdate makes a backup of the last set of changes and creates a **erevert** script. To revert the last update, just execute `./erevert`.
+
+### Installing signed *.epd* file
+
+By default, *eupdate* ignores the package signature (no matter whether it is present or not). To enable the signature check, do the following **on the target** (paths are relative to the tool installation directory */etc/eupdate/*):
+  * Set the `EUPDATE_REQUIRE_SIGNATURE` variable in the *config/config* file to value `yes`.
+  * Install the public PEM key to the *keys/* directory.
+
+Eupdate will then only allow to install packages signed by a private key, corresponding to any public key in the *keys/* directory.
