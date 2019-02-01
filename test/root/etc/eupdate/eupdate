@@ -59,6 +59,7 @@ tmp="/tmp/eupdate/"
 configdir="$workdir/config/"
 keysdir="$workdir/keys/"
 backup="$workdir/backup"
+backup_tool="$workdir/backup_tool"
 configfile="config"
 manifest="manifest"
 eutils="$workdir/eutils"
@@ -70,13 +71,11 @@ dest="$workdir/../../"
 
 sourcetool="$source/etc/eupdate/$0"
 sourceutils="$source/etc/eupdate/eutils"
-desttool="$workdir/$0"
-destutils="$workdir/eutils"
 
 ################################################################################
 # Functions
 
-# Performs clenaup and quits
+# Performs cleanup and quits
 # Input: Return code
 quit()
 {
@@ -298,19 +297,34 @@ done
 # Tool update
 
 if test -f "$sourcetool"; then
-  diff "$sourcetool" "$desttool" > /dev/null
+  diff "$sourcetool" "$tool" > /dev/null
   if [ "$?" -ne "0" ]; then
     echo "Updating the eupdate tool"
-    mv "$sourcetool" "$desttool"
-    mv "$sourceutils" "$destutils"
+
+    # Backup old tool
+    [ -d "$backup_tool" ] && rm -rf "$backup_tool"
+    mkdir -p "$backup_tool"
+    cp "$tool" "$eutils" "$backup_tool"
+
+    # Replace it by the new tool
+    cp "$sourcetool" "$workdir"
+    [ -f "$sourceutils" ] && cp "$sourceutils" "$workdir"
 
     echo "Restarting the script"
     cd "$workdir"
     sh "$erevert"
-    sh "$desttool" "$epd"
+    sh "$tool" "$epd"
 
     quit $EXIT_SUCCESS
   fi
+fi
+
+# Replace current (new) tool by the (old) tool backup. Current (new) tool
+# will continue running while the old tool will be properly backup'd below
+# and finally again replaced by the new tool from the update package.
+if [ -d "$backup_tool" ]; then
+  cp "$backup_tool/"* "$workdir"
+  rm -rf "$backup_tool"
 fi
 
 ################################################################################
@@ -383,13 +397,13 @@ for file in $remfiles; do                                                       
   rm -f "$dest/$file"
 done
 
-# header
+# erevert header
 sed -i "1i#!/bin/sh\\
 configdir=$configdir\\
 configfile=$configfile\\
 . \"$eutils\"\\
 rootfs_unlock" "$erevert"
-# footer
+# erevert footer
 sed -i "\$arootfs_lock" "$erevert"
 
 ################################################################################
